@@ -7,10 +7,7 @@ export default function LoginButton() {
 
   if (session) {
     return (
-      <div>
-        <p>ログイン中: {session.user?.email}</p>
         <button onClick={() => signOut()}>ログアウト</button>
-      </div>
     );
   }
   return <button onClick={() => signIn("google")}>Googleでログイン</button>;
