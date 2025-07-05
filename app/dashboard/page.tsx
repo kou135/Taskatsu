@@ -12,6 +12,13 @@ import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 
+/**
+ * Renders the job-hunting dashboard interface, displaying authentication-dependent content and a form for creating new tasks.
+ *
+ * Shows a loading screen while authentication status is being determined, a login prompt if unauthenticated, and the main dashboard with a task creation form if authenticated. The form allows users to input a company name, select a task type, choose a deadline date, and optionally add attachments.
+ *
+ * @returns The dashboard UI as a React element, with conditional rendering based on authentication state.
+ */
 export default function Dashboard() {
     const { data: session, status } = useSession();
     const [date, setDate] = useState<Date>();
