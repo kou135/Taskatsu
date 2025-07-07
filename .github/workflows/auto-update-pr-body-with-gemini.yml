@@ -3,6 +3,8 @@ name: Auto update PR body with Gemini summary
 on:
   issue_comment:
     types: [created]
+  pull_request_review_comment:
+    types: [created]
 
 permissions:
   issues: write
@@ -11,8 +13,13 @@ permissions:
 jobs:
   update-pr-body:
     if: |
-      github.event.comment.user.login == 'github-actions[bot]' &&
-      contains(github.event.comment.body, 'Walkthrough')
+      github.event.comment.user.login == 'coderabbitai' &&
+      (
+        contains(github.event.comment.body, 'ウォークスルー') ||
+        contains(github.event.comment.body, 'Walkthrough') ||
+        contains(github.event.comment.body, '変更点') ||
+        contains(github.event.comment.body, 'Summary')
+      )
     runs-on: ubuntu-latest
     steps:
       - name: Extract PR number
