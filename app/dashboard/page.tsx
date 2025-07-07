@@ -79,7 +79,7 @@ export default function Dashboard() {
                                 </div>
                                 <div className="flex items-center space-x-2">
                                     <RadioGroupItem value="web-test" id="web-test" />
-                                    <Label htmlFor="web-test">Webテストあああああああ</Label>
+                                    <Label htmlFor="web-test">Webテストkokokoko</Label>
                                 </div>
                                 <div className="flex items-center space-x-2">
                                     <RadioGroupItem value="interview" id="interview" />
