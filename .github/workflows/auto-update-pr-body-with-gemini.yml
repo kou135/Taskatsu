@@ -1,17 +1,22 @@
 name: Auto update PR body with Gemini summary
 
+# ワークフローの実行権限を設定します
+permissions:
+  pull-requests: write # PRの本文を書き換えるために必要
+
+# ワークフローが起動するトリガーを設定します
 on:
+  # PRへの通常のコメント、またはレビューコメントが作成されたときに起動
   issue_comment:
     types: [created]
   pull_request_review_comment:
     types: [created]
 
-permissions:
-  issues: write
-  pull-requests: write
-
 jobs:
   update-pr-body:
+    # 実行条件：
+    # 1. コメントを投稿したのが 'coderabbit-ai[bot]' であること（[bot] を忘れずに！）
+    # 2. コメント本文に、CodeRabbitの要約を示すキーワードが含まれていること
     if: |
       github.event.comment.user.login == 'coderabbitai' &&
       (
@@ -22,48 +27,92 @@ jobs:
       )
     runs-on: ubuntu-latest
     steps:
+      # --- ステップ 1: 関連するPR番号を特定する ---
+      # 'issue_comment'と'pull_request_review_comment'でPR番号の場所が違うため、両方に対応します
       - name: Extract PR number
         id: pr
-        run: echo "pr_number=$(jq .issue.number \"$GITHUB_EVENT_PATH\")" >> $GITHUB_OUTPUT
+        run: |
+          if [ -n "${{ github.event.issue.number }}" ]; then
+            echo "pr_number=${{ github.event.issue.number }}" >> $GITHUB_OUTPUT
+          elif [ -n "${{ github.event.pull_request.number }}" ]; then
+            echo "pr_number=${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
+          fi
 
+      # --- ステップ 2: 現在のPR本文を取得する ---
       - name: Get current PR body
         id: get_pr
         uses: octokit/request-action@v2.x
         with:
           route: GET /repos/${{ github.repository }}/pulls/${{ steps.pr.outputs.pr_number }}
         env:
+          # ここはPATではなく、標準のGITHUB_TOKENを使用します
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract summary from comment
-        id: summary
-        run: |
-          echo "${{ github.event.comment.body }}" > summary.txt
-
+      # --- ステップ 3: Gemini APIに要約を依頼する ---
       - name: Summarize with Gemini
         id: gemini
         run: |
-          SUMMARY=$(cat summary.txt)
-          RESPONSE=$(curl -s -X POST \
-            -H "Content-Type: application/json" \
-            -d "{\"contents\": [{\"parts\": [{\"text\": \"以下はGitHubのプルリクエストに対するAIレビューコメントです。この内容をもとに、下記のPRテンプレートの「変更内容」欄にふさわしい日本語の要約文、そして想定される「実装の背景」欄を作成してください。\n\n【AIレビューコメント】\n$SUMMARY\n\n# 出力条件\n- 「### 変更内容」欄にそのまま貼れるような、簡潔で分かりやすい日本語でまとめてください。\n- テンプレートの他の欄は絶対に出力しないでください。\n- 余計な挨拶や説明文は不要です。「変更内容」だけを出力してください。\"}]}]}" \
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${{ secrets.GEMINI_API_KEY }}")
-          echo "gemini_summary<<EOF" >> $GITHUB_OUTPUT
-          echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text' >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          # CodeRabbitのコメント本文を変数に格納します
+          COMMENT_BODY=$(cat <<'EOF'
+          ${{ github.event.comment.body }}
+          EOF
+          )
 
+          # Gemini APIに渡すためのJSONデータ（ペイロード）を組み立てます
+          # ヒアドキュメントを使い、複数行のプロンプトを安全に組み立てています
+          JSON_PAYLOAD=$(cat <<EOF
+          {
+            "contents": [{
+              "parts": [{
+                "text": "あなたは優秀なテクニカルライターです。以下は、AIによるコードレビューの要約コメントです。このコメントから「実装の背景」と「変更内容」を抽出し、指定されたPRテンプレートの各項目に自然に収まるように、日本語で本文を生成してください。\n\n【AIレビューコメント原文】\n${COMMENT_BODY}\n\n# 出力形式\n### 実装の背景\n（ここに背景を記述）\n\n### 変更内容\n（ここに変更内容を記述）\n\n# 注意事項\n- 必ず上記の「出力形式」と全く同じフォーマットで出力してください。「実装の背景」と「変更内容」の両方を必ず含めてください。余計な挨拶や前置き、説明は一切不要です。"
+              }]
+            }]
+          }
+          EOF
+          )
+
+          # curlコマンドでGemini APIを呼び出します
+          API_RESPONSE=$(curl -s -X POST \
+            -H "Content-Type: application/json" \
+            -d "$JSON_PAYLOAD" \
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${{ secrets.GEMINI_API_KEY }}")
+
+          # レスポンスからテキスト部分だけを安全に抽出します
+          SUMMARY_TEXT=$(echo "$API_RESPONSE" | jq -r '.candidates[0].content.parts[0].text // ""')
+
+          # マルチラインの出力をGITHUB_OUTPUTに渡すための定石です
+          EOF_MARKER=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          echo "gemini_summary<<$EOF_MARKER" >> $GITHUB_OUTPUT
+          echo "$SUMMARY_TEXT" >> $GITHUB_OUTPUT
+          echo "$EOF_MARKER" >> $GITHUB_OUTPUT
+
+      # --- ステップ 4: PR本文を更新する ---
       - name: Update PR body
         uses: actions/github-script@v7
         with:
+          # ここもPATではなく、標準のGITHUB_TOKENを使用します
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const prBody = `${{ steps.get_pr.outputs.data.body }}`;
-            const summary = `${{ steps.gemini.outputs.gemini_summary }}`;
-            // 「変更内容」欄を要約で置換
-            const newBody = prBody.replace(/(### 変更内容\n)([\s\S]*?)(\n---)/, `$1${summary}$3`);
+            // 前のステップから現在のPR本文とGeminiが生成した要約を取得します
+            const currentBody = `${{ steps.get_pr.outputs.data.body }}`;
+            const geminiSummary = `${{ steps.gemini.outputs.gemini_summary }}`;
+
+            // Geminiの出力から「実装の背景」と「変更内容」をそれぞれ抽出します
+            const backgroundMatch = geminiSummary.match(/### 実装の背景\s*([\s\S]*?)(?=\n### 変更内容|$)/);
+            const changesMatch = geminiSummary.match(/### 変更内容\s*([\s\S]*)/);
+
+            const backgroundText = backgroundMatch ? backgroundMatch[1].trim() : "（AIによる自動記述）";
+            const changesText = changesMatch ? changesMatch[1].trim() : "（AIによる自動記述）";
+
+            // 現在のPR本文のテンプレート部分を、抽出したテキストで置換します
+            // より堅牢な正規表現に修正
+            let newBody = currentBody.replace(/(### 実装の背景\s*)[\s\S]*?(?=\n### 変更内容|$)/, `$1${backgroundText}`);
+            newBody = newBody.replace(/(### 変更内容\s*)[\s\S]*?(?=(\n---|\n## |$))/, `$1${changesText}`);
+
+            // GitHub APIを使ってPRを更新します
             await github.rest.pulls.update({
               owner: context.repo.owner,
               repo: context.repo.repo,
               pull_number: ${{ steps.pr.outputs.pr_number }},
-              body: newBody
+              body: newBody,
             });
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
