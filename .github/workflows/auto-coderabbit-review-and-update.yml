@@ -63,7 +63,7 @@ jobs:
         id: generate_pr_body
         run: |
           SUMMARY="${{ steps.wait_for_comment.outputs.summary }}"
-          PROMPT="Based on the following summary, generate a clear and detailed pull request description:\n\n${SUMMARY}"
+          PROMPT="以下はGitHubのプルリクエストに対するAIレビューコメントです。この内容をもとに、下記のPRテンプレートの「変更内容」欄にふさわしい日本語の要約文、そして想定される「実装の背景」欄を作成してください。\n\n【AIレビューコメント】\n$SUMMARY\n\n# 出力条件\n- 「### 変更内容」欄にそのまま貼れるような、簡潔で分かりやすい日本語でまとめてください。\n- テンプレートの他の欄は絶対に出力しないでください。\n- 余計な挨拶や説明文は不要です。「変更内容」だけを出力してください。\"
 
           RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${{ secrets.GEMINI_API_KEY }}" \
             -H "Content-Type: application/json" \
