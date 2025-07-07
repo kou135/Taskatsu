@@ -12,3 +12,4 @@ export default function LoginButton() {
   }
   return <button onClick={() => signIn("google")}>Googleでログイン</button>;
 }
+a
