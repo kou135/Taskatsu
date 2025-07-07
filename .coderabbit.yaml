@@ -1,101 +1,26 @@
-# CodeRabbit Configuration
-# This file configures how CodeRabbit analyzes and reviews your code
+language: ja
+reviews:
+  path_instructions:
+    - path: "**/*.{js,jsx,ts,tsx}" # JavaScript/TypeScriptファイル全体に適用
+      instructions: |
+        あなたは経験豊富なソフトウェアエンジニアです。
+        コードレビューを日本語で、親切かつ建設的に行ってください。
+        
+        レビューでは特に以下の5つの観点を重視してください：
+        1. コードの品質と可読性：命名規則は適切か、複雑すぎないか？
+        2. セキュリティの懸念事項：XSSやCSRFなどの脆弱性はないか？
+        3. パフォーマンスの改善点：不要な再レンダリングや、重いループ処理はないか？
+        4. ベストプラクティスの提案：よりモダンで効率的な書き方はないか？
+        5. バグの可能性：エッジケースやnullチェックは考慮されているか？
+        
+        さらに、以下のカスタムルールも考慮してください：
+        - 本番環境での`console.log`の使用は避けるべきです。
+        - TypeScriptのオブジェクト形状定義には`interface`の使用を推奨します。
+        - エラーハンドリングでは、具体的なエラー型を使用するか、エラー内容をログに出力することを推奨します。
 
-# Global settings
-global:
-  # Enable or disable CodeRabbit for this repository
-  enabled: true
-  
-  # Specify which files to include/exclude from analysis
-  include:
-    - "**/*.{js,jsx,ts,tsx}"
-    - "**/*.{json,yaml,yml}"
-    - "**/*.{md,txt}"
-  
-  exclude:
-    - "node_modules/**"
-    - ".git/**"
-    - "dist/**"
-    - "build/**"
-    - "coverage/**"
-    - "*.log"
+    - path: "**/*.{json,yaml,yml,md,txt}"
+      instructions: |
+        設定ファイルやドキュメントのレビューです。タイポやフォーマットの間違いがないか確認してください。
 
-# Review settings
-review:
-  # Enable automatic code reviews
-  enabled: true
-  
-  # Review strategy: 'diff' or 'full'
-  strategy: "diff"
-  
-  # Maximum number of comments per review
-  max_comments: 50
-  
-  # Review categories to enable
-  categories:
-    - "security"
-    - "performance"
-    - "best_practices"
-    - "readability"
-    - "maintainability"
-
-# AI settings
-ai:
-  # Model to use for analysis
-  model: "gpt-4"
-  
-  # Temperature for AI responses (0.0 to 1.0)
-  temperature: 0.1
-  
-  # Maximum tokens for AI responses
-  max_tokens: 2000
-  
-  # Language for AI responses
-  language: "japanese"
-  
-  # Custom prompt for Japanese reviews
-  custom_prompt: |
-    あなたは経験豊富なソフトウェアエンジニアです。
-    コードレビューを日本語で行ってください。
-    
-    レビューでは以下の点を日本語でコメントしてください：
-    - コードの品質と可読性
-    - セキュリティの懸念事項
-    - パフォーマンスの改善点
-    - ベストプラクティスの提案
-    - バグの可能性
-    
-    コメントは親切で建設的で、具体的な改善提案を含めてください。
-
-# Language-specific settings
-languages:
-  typescript:
-    # TypeScript specific rules
-    strict: true
-    noImplicitAny: true
-    
-  javascript:
-    # JavaScript specific rules
-    esversion: 2020
-    
-  react:
-    # React specific rules
-    hooks_rules: true
-    jsx_rules: true
-
-# Custom rules (optional)
-custom_rules:
-  - name: "本番環境でのconsole.log禁止"
-    pattern: "console\\.log\\("
-    message: "本番環境ではconsole.logを削除することを検討してください"
-    severity: "warning"
-    
-  - name: "TypeScriptインターフェースの使用推奨"
-    pattern: "type\\s+\\w+\\s*=\\s*\\{"
-    message: "オブジェクトの形状定義には'type'ではなく'interface'の使用を検討してください"
-    severity: "info"
-    
-  - name: "適切なエラーハンドリング"
-    pattern: "catch\\s*\\(\\s*e\\s*\\)\\s*\\{"
-    message: "エラーハンドリングでは具体的なエラー型を使用することを推奨します"
-    severity: "info" 
+chat:
+  auto_reply: true
