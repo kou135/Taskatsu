@@ -1,6 +1,4 @@
-# CodeRabbit Configuration (公式仕様に準拠した修正版)
-
-# レビューに関する全体設定
+language: ja
 reviews:
   path_instructions:
     - path: "**/*.{js,jsx,ts,tsx}" # JavaScript/TypeScriptファイル全体に適用
