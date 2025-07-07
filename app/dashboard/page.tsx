@@ -52,7 +52,7 @@ export default function Dashboard() {
                 
                 {/* タスク作成フォーム */}
                 <div className="bg-white rounded-lg shadow-md p-6">
-                    <h2 className="text-xl font-semibold mb-6">新しいタスクを作成</h2>
+                    <h2 className="text-xl font-semibold mb-6">新しいタスクを作成しまああああああああああす</h2>
                     
                     <div className="space-y-6">
                         {/* 企業名入力 */}
