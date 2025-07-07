@@ -1,3 +1,4 @@
+language: ja
 reviews:
   path_instructions:
     - path: "**/*.{js,jsx,ts,tsx}" # JavaScript/TypeScriptファイル全体に適用
