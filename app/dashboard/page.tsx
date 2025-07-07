@@ -30,7 +30,7 @@ export default function Dashboard() {
         return (
             <div className="w-full min-h-screen bg-gray-50 flex items-center justify-center">
                 <div className="text-center">
-                    <h1 className="text-2xl font-bold mb-4">ログインが必要です</h1>
+                    <h1 className="text-2xl font-bold mb-4">ログインが必要ですああああああああ</h1>
                     <p className="text-gray-600 mb-4">ダッシュボードにアクセスするにはログインしてください。</p>
                     <Button onClick={() => window.location.href = '/'}>
                         ホームに戻る

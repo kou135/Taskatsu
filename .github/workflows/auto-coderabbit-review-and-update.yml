@@ -1,89 +1,76 @@
-name: Auto trigger CodeRabbit and update PR body
+name: Auto PR Summary with Gemini
 
 on:
   pull_request:
-    types: [opened]
-  issue_comment:
-    types: [created]
-  pull_request_review_comment:
-    types: [created]
-
-permissions:
-  issues: write
-  pull-requests: write
+    types: [opened, synchronize]
 
 jobs:
-  trigger-coderabbit:
-    if: github.event_name == 'pull_request'
+  generate_and_update:
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
     steps:
-      - name: Comment to trigger CodeRabbit review
-        uses: actions/github-script@v7
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Post CodeRabbit review comment
+        uses: peter-evans/create-or-update-comment@v3
         with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.payload.pull_request.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: "@coderabbitai review"
-            })
-        env:
-          GITHUB_TOKEN: ${{ secrets.MY_PAT }}
+          token: ${{ secrets.MY_PAT }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: "@coderabbitai review"
 
-  update-pr-body:
-    if: >
-      (github.event_name == 'issue_comment' || github.event_name == 'pull_request_review_comment') &&
-      github.event.comment.user.login == 'coderabbitai' &&
-      (
-        contains(github.event.comment.body, 'ウォークスルー') ||
-        contains(github.event.comment.body, 'Walkthrough') ||
-        contains(github.event.comment.body, '変更点') ||
-        contains(github.event.comment.body, 'Summary')
-      )
-    runs-on: ubuntu-latest
-    steps:
-      - name: Extract PR number
-        id: pr
-        run: echo "pr_number=$(jq .issue.number \"$GITHUB_EVENT_PATH\")" >> $GITHUB_OUTPUT
-
-      - name: Get current PR body
-        id: get_pr
-        uses: octokit/request-action@v2.x
-        with:
-          route: GET /repos/${{ github.repository }}/pulls/${{ steps.pr.outputs.pr_number }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract summary from comment
-        id: summary
+      - name: Wait for CodeRabbit summary
+        id: wait_for_comment
         run: |
-          echo "${{ github.event.comment.body }}" > summary.txt
+          echo "Waiting for CodeRabbit summary..."
+          COMMENT_FOUND=false
+          for i in {1..10}; do
+            sleep 15
+            COMMENTS=$(gh api repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments)
+            SUMMARY=$(echo "$COMMENTS" | jq -r '.[] | select(.user.login=="coderabbitai") | .body' | tail -n1)
+            if [[ ! -z "$SUMMARY" ]]; then
+              echo "summary<<EOF" >> $GITHUB_OUTPUT
+              echo "$SUMMARY" >> $GITHUB_OUTPUT
+              echo "EOF" >> $GITHUB_OUTPUT
+              COMMENT_FOUND=true
+              break
+            fi
+          done
 
-      - name: Summarize with Gemini
-        id: gemini
+          if [ "$COMMENT_FOUND" = false ]; then
+            echo "Timed out waiting for CodeRabbit comment"
+            exit 1
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate PR body using Gemini API
+        id: generate_pr_body
         run: |
-          SUMMARY=$(cat summary.txt)
-          RESPONSE=$(curl -s -X POST \
+          SUMMARY="${{ steps.wait_for_comment.outputs.summary }}"
+          PROMPT="Based on the following summary, generate a clear and detailed pull request description:\n\n${SUMMARY}"
+
+          RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${{ secrets.GEMINI_API_KEY }}" \
             -H "Content-Type: application/json" \
-            -d "{\"contents\": [{\"parts\": [{\"text\": \"以下はGitHubのプルリクエストに対するAIレビューコメントです。この内容をもとに、下記のPRテンプレートの「変更内容」欄にふさわしい日本語の要約文、そして想定される「実装の背景」欄を作成してください:\n\n【AIレビューコメント】\n$SUMMARY\n\n# 出力条件\n- 「### 変更内容」欄にそのまま貼れるような、簡潔で分かりやすい日本語でまとめてください。\n- テンプレートの他の欄は絶対に出力しないでください。\n- 余計な挨拶や説明文は不要です。「変更内容」だけを出力してください。\"}]}]}" \
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${{ secrets.GEMINI_API_KEY }}")
-          echo "gemini_summary<<EOF" >> $GITHUB_OUTPUT
-          echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text' >> $GITHUB_OUTPUT
+            -d '{
+              "contents": [
+                {
+                  "parts": [
+                    { "text": "'"${PROMPT}"'" }
+                  ]
+                }
+              ]
+            }')
+
+          BODY=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text')
+          echo "pr_body<<EOF" >> $GITHUB_OUTPUT
+          echo "$BODY" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Update PR body
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const prBody = `${{ steps.get_pr.outputs.data.body }}`;
-            const summary = `${{ steps.gemini.outputs.gemini_summary }}`;
-            // 「変更内容」欄を要約で置換
-            const newBody = prBody.replace(/(### 変更内容\n)([\s\S]*?)(\n---)/, `$1${summary}$3`);
-            await github.rest.pulls.update({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: ${{ steps.pr.outputs.pr_number }},
-              body: newBody
-            });
+        run: |
+          echo "Updating PR body..."
+          gh pr edit ${{ github.event.pull_request.number }} --body "${{ steps.generate_pr_body.outputs.pr_body }}"
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
