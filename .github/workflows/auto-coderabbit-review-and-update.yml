@@ -20,30 +20,44 @@ jobs:
           issue-number: ${{ github.event.pull_request.number }}
           body: "@coderabbitai review"
 
-      - name: Wait for CodeRabbit summary
+      - name: Wait for CodeRabbit summary (Debug Mode)
         id: wait_for_comment
         run: |
-          echo "Waiting for CodeRabbit summary..."
-          COMMENT_FOUND=false
-          for i in {1..10}; do
+          echo ":sleuth_or_spy: Starting to poll for CodeRabbit summary comment..."
+          echo ":pushpin: Repository: $GITHUB_REPOSITORY"
+          echo ":pushpin: Pull Request #: $PR_NUMBER"
+
+          for i in {1..20}; do
+            echo ":hourglass_flowing_sand: Polling attempt $i..."
             sleep 15
-            COMMENTS=$(gh api repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments)
+
+            echo ":outbox_tray: Fetching issue comments via GitHub API..."
+            COMMENTS=$(gh api repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments)
+
+            echo ":inbox_tray: Raw comment payload:"
+            echo "$COMMENTS" | jq '.'
+
+            echo ":mag: Extracting latest comment by 'coderabbitai'..."
             SUMMARY=$(echo "$COMMENTS" | jq -r '.[] | select(.user.login=="coderabbitai") | .body' | tail -n1)
-            if [[ ! -z "$SUMMARY" ]]; then
+
+            if [[ -n "$SUMMARY" ]]; then
+              echo ":white_check_mark: Found CodeRabbit comment:"
+              echo "$SUMMARY"
               echo "summary<<EOF" >> $GITHUB_OUTPUT
               echo "$SUMMARY" >> $GITHUB_OUTPUT
               echo "EOF" >> $GITHUB_OUTPUT
-              COMMENT_FOUND=true
-              break
+              exit 0
+            else
+              echo ":x: CodeRabbit comment not found yet."
             fi
           done
 
-          if [ "$COMMENT_FOUND" = false ]; then
-            echo "Timed out waiting for CodeRabbit comment"
-            exit 1
-          fi
+          echo ":no_entry: Timed out waiting for CodeRabbit summary comment."
+          exit 1
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
 
       - name: Generate PR body using Gemini API
         id: generate_pr_body
