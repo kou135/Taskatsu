@@ -38,7 +38,7 @@ jobs:
             echo "$COMMENTS" | jq '.'
 
             echo ":mag: Extracting latest comment by 'coderabbitai'..."
-            SUMMARY=$(echo "$COMMENTS" | jq -r '.[] | select(.user.login=="coderabbitai") | .body' | tail -n1)
+            SUMMARY=$(echo "$COMMENTS" | jq -r '.[] | select(.user.login=="coderabbitai[bot]") | .body' | tail -n1)
 
             if [[ -n "$SUMMARY" ]]; then
               echo ":white_check_mark: Found CodeRabbit comment:"

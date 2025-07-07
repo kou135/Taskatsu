@@ -44,7 +44,7 @@ export default function Dashboard() {
         <div className="w-full min-h-screen bg-gray-50 p-6">
             <div className="max-w-2xl mx-auto">
                 <div className="flex justify-between items-center mb-8">
-                    <h1 className="text-3xl font-bold text-gray-900">就活タスク管理</h1>
+                    <h1 className="text-3xl font-bold text-gray-900">就活タスク管理でええええええええす</h1>
                     <div className="text-sm text-gray-600">
                         ようこそ、{session?.user?.name || session?.user?.email}さん
                     </div>
