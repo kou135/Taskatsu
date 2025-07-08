@@ -30,8 +30,8 @@ export default function Dashboard() {
         return (
             <div className="w-full min-h-screen bg-gray-50 flex items-center justify-center">
                 <div className="text-center">
-                    <h1 className="text-2xl font-bold mb-4">ログインが必要ですああああああああ</h1>
-                    <p className="text-gray-600 mb-4">ダッシュボードにアクセスするにはログインしてください。ああああああああああああああああ</p>
+                    <h1 className="text-2xl font-bold mb-4">ログインが必要です</h1>
+                    <p className="text-gray-600 mb-4">ダッシュボードにアクセスするにはログインしてください。</p>
                     <Button onClick={() => window.location.href = '/'}>
                         ホームに戻る
                     </Button>
@@ -44,7 +44,7 @@ export default function Dashboard() {
         <div className="w-full min-h-screen bg-gray-50 p-6">
             <div className="max-w-2xl mx-auto">
                 <div className="flex justify-between items-center mb-8">
-                    <h1 className="text-3xl font-bold text-gray-900">就活タスク管理でええええええええす</h1>
+                    <h1 className="text-3xl font-bold text-gray-900">就活タスク管理</h1>
                     <div className="text-sm text-gray-600">
                         ようこそ、{session?.user?.name || session?.user?.email}さん
                     </div>
@@ -52,7 +52,7 @@ export default function Dashboard() {
                 
                 {/* タスク作成フォーム */}
                 <div className="bg-white rounded-lg shadow-md p-6">
-                    <h2 className="text-xl font-semibold mb-6">新しいタスクを作成しまああああああああああす</h2>
+                    <h2 className="text-xl font-semibold mb-6">新しいタスクを作成</h2>
                     
                     <div className="space-y-6">
                         {/* 企業名入力 */}
@@ -75,11 +75,11 @@ export default function Dashboard() {
                             >
                                 <div className="flex items-center space-x-2">
                                     <RadioGroupItem value="es" id="es" />
-                                    <Label htmlFor="es">ESだぜえええええええええええ</Label>
+                                    <Label htmlFor="es">ES</Label>
                                 </div>
                                 <div className="flex items-center space-x-2">
                                     <RadioGroupItem value="web-test" id="web-test" />
-                                    <Label htmlFor="web-test">Webテストkokokoko</Label>
+                                    <Label htmlFor="web-test">Webテスト</Label>
                                 </div>
                                 <div className="flex items-center space-x-2">
                                     <RadioGroupItem value="interview" id="interview" />
