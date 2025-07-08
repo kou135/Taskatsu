@@ -1,4 +1,4 @@
-name: Auto PR Summary with Gemini
+name: Auto PR Summary
 
 on:
   pull_request:
