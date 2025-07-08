@@ -30,8 +30,21 @@ jobs:
             REVIEWS=$(gh api repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/reviews)
             COMMENTS=$(gh api repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments)
             
+            echo "=== DEBUG: Raw Reviews Response ==="
+            echo "$REVIEWS" | jq '.'
+            echo "=== DEBUG: Raw Comments Response ==="
+            echo "$COMMENTS" | jq '.'
+            echo "================================"
+            
+            # CodeRabbitのコメントを抽出（より詳細に）
             REVIEW_SUMMARY=$(echo "$REVIEWS" | jq -r '.[] | select(.user.login=="coderabbitai[bot]") | .body' | tail -n1)
             COMMENT_SUMMARY=$(echo "$COMMENTS" | jq -r '.[] | select(.user.login=="coderabbitai[bot]") | .body' | tail -n1)
+            
+            echo "=== DEBUG: CodeRabbit Review Count ==="
+            echo "$REVIEWS" | jq -r '.[] | select(.user.login=="coderabbitai[bot]") | .id' | wc -l
+            echo "=== DEBUG: CodeRabbit Comment Count ==="
+            echo "$COMMENTS" | jq -r '.[] | select(.user.login=="coderabbitai[bot]") | .id' | wc -l
+            echo "================================"
             
             # デバッグ用：実際のコメント内容を確認
             echo "=== DEBUG: Review Summary ==="
@@ -47,6 +60,25 @@ jobs:
               SUMMARY="$COMMENT_SUMMARY"
             else
               SUMMARY=""
+            fi
+            
+            # 代替手段：最新のCodeRabbitコメントを取得（条件なし）
+            if [[ -z "$SUMMARY" ]]; then
+              echo "=== DEBUG: Trying alternative approach ==="
+              ALT_REVIEW=$(echo "$REVIEWS" | jq -r '.[] | select(.user.login=="coderabbitai[bot]") | .body' | head -n1)
+              ALT_COMMENT=$(echo "$COMMENTS" | jq -r '.[] | select(.user.login=="coderabbitai[bot]") | .body' | head -n1)
+              
+              echo "=== DEBUG: Alternative Review ==="
+              echo "$ALT_REVIEW"
+              echo "=== DEBUG: Alternative Comment ==="
+              echo "$ALT_COMMENT"
+              echo "================================"
+              
+              if [[ -n "$ALT_REVIEW" ]]; then
+                SUMMARY="$ALT_REVIEW"
+              elif [[ -n "$ALT_COMMENT" ]]; then
+                SUMMARY="$ALT_COMMENT"
+              fi
             fi
 
             if [[ -n "$SUMMARY" ]]; then
