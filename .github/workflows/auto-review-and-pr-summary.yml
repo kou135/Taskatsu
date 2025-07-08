@@ -26,8 +26,20 @@ jobs:
           for i in {1..20}; do
             sleep 15
             
+            # レビューコメントを取得（編集されたコメントも含む）
+            REVIEWS=$(gh api repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/reviews)
             COMMENTS=$(gh api repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments)
-            SUMMARY=$(echo "$COMMENTS" | jq -r '.[] | select(.user.login=="coderabbitai[bot]") | .body' | tail -n1)
+            
+            REVIEW_SUMMARY=$(echo "$REVIEWS" | jq -r '.[] | select(.user.login=="coderabbitai[bot]") | .body' | tail -n1)
+            COMMENT_SUMMARY=$(echo "$COMMENTS" | jq -r '.[] | select(.user.login=="coderabbitai[bot]") | .body' | tail -n1)
+            
+            if [[ -n "$REVIEW_SUMMARY" ]] && [[ "$REVIEW_SUMMARY" == *"Walkthrough"* ]]; then
+              SUMMARY="$REVIEW_SUMMARY"
+            elif [[ -n "$COMMENT_SUMMARY" ]] && [[ "$COMMENT_SUMMARY" == *"Walkthrough"* ]]; then
+              SUMMARY="$COMMENT_SUMMARY"
+            else
+              SUMMARY=""
+            fi
 
             if [[ -n "$SUMMARY" ]]; then
               echo "summary<<EOF" >> $GITHUB_OUTPUT
