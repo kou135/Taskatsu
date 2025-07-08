@@ -75,7 +75,7 @@ export default function Dashboard() {
                             >
                                 <div className="flex items-center space-x-2">
                                     <RadioGroupItem value="es" id="es" />
-                                    <Label htmlFor="es">ES</Label>
+                                    <Label htmlFor="es">ESだぜえええええええええええ</Label>
                                 </div>
                                 <div className="flex items-center space-x-2">
                                     <RadioGroupItem value="web-test" id="web-test" />
