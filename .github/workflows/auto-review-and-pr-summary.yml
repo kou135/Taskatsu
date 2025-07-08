@@ -33,6 +33,14 @@ jobs:
             REVIEW_SUMMARY=$(echo "$REVIEWS" | jq -r '.[] | select(.user.login=="coderabbitai[bot]") | .body' | tail -n1)
             COMMENT_SUMMARY=$(echo "$COMMENTS" | jq -r '.[] | select(.user.login=="coderabbitai[bot]") | .body' | tail -n1)
             
+            # デバッグ用：実際のコメント内容を確認
+            echo "=== DEBUG: Review Summary ==="
+            echo "$REVIEW_SUMMARY"
+            echo "=== DEBUG: Comment Summary ==="
+            echo "$COMMENT_SUMMARY"
+            echo "=============================="
+            
+            # Walkthrough（太字含む）を検索
             if [[ -n "$REVIEW_SUMMARY" ]] && [[ "$REVIEW_SUMMARY" == *"Walkthrough"* ]]; then
               SUMMARY="$REVIEW_SUMMARY"
             elif [[ -n "$COMMENT_SUMMARY" ]] && [[ "$COMMENT_SUMMARY" == *"Walkthrough"* ]]; then
