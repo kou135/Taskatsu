@@ -54,7 +54,7 @@ jobs:
             echo "=============================="
             
             # レビュー完了を示すキーワードを検索
-            if [[ -n "$REVIEW_SUMMARY" ]] && ([[ "$REVIEW_SUMMARY" == *"Walkthrough"* ]] || [[ "$REVIEW_SUMMARY" == *"Summary"* ]] || [[ "$REVIEW_SUMMARY" == *"Changes"* ]] ||); then
+            if [[ -n "$REVIEW_SUMMARY" ]] && ([[ "$REVIEW_SUMMARY" == *"Walkthrough"* ]] || [[ "$REVIEW_SUMMARY" == *"Summary"* ]] || [[ "$REVIEW_SUMMARY" == *"Changes"* ]]); then
               SUMMARY="$REVIEW_SUMMARY"
             elif [[ -n "$COMMENT_SUMMARY" ]] && ([[ "$COMMENT_SUMMARY" == *"Walkthrough"* ]] || [[ "$COMMENT_SUMMARY" == *"Summary"* ]] || [[ "$COMMENT_SUMMARY" == *"Changes"* ]]); then
               SUMMARY="$COMMENT_SUMMARY"
