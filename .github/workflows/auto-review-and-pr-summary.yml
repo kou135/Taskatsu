@@ -28,17 +28,9 @@ jobs:
             
             # レビューコメントを取得（編集されたコメントも含む）
             COMMENTS=$(gh api repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments)
-            
-            echo "=== DEBUG: Raw Comments Response ==="
-            echo "$COMMENTS" | jq '.'
-            echo "================================"
           
             # CodeRabbitのコメントを抽出（キーワードを含み、システムメッセージを除外した最初のものを取得）
             COMMENT_SUMMARY=$(echo "$COMMENTS" | jq -r '.[] | select(.user.login=="coderabbitai[bot]" and (.body | test("<!-- walkthrough_start -->")) and (.body | test("rate limited|review in progress") | not)) | .body')
-
-            echo "=== DEBUG: Comment Summary ==="
-            echo "$COMMENT_SUMMARY"
-            echo "=============================="
             
             # レビュー完了を示すキーワードを検索
             if [[ -n "$COMMENT_SUMMARY" ]] && ([[ "$COMMENT_SUMMARY" == *"Walkthrough"* ]] || [[ "$COMMENT_SUMMARY" == *"Summary"* ]] || [[ "$COMMENT_SUMMARY" == *"Changes"* ]]); then
