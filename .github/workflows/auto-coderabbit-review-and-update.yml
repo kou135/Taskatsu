@@ -20,39 +20,24 @@ jobs:
           issue-number: ${{ github.event.pull_request.number }}
           body: "@coderabbitai review"
 
-      - name: Wait for CodeRabbit summary (Debug Mode)
+      - name: Wait for CodeRabbit summary
         id: wait_for_comment
         run: |
-          echo ":sleuth_or_spy: Starting to poll for CodeRabbit summary comment..."
-          echo ":pushpin: Repository: $GITHUB_REPOSITORY"
-          echo ":pushpin: Pull Request #: $PR_NUMBER"
-
           for i in {1..20}; do
-            echo ":hourglass_flowing_sand: Polling attempt $i..."
             sleep 15
-
-            echo ":outbox_tray: Fetching issue comments via GitHub API..."
+            
             COMMENTS=$(gh api repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments)
-
-            echo ":inbox_tray: Raw comment payload:"
-            echo "$COMMENTS" | jq '.'
-
-            echo ":mag: Extracting latest comment by 'coderabbitai'..."
             SUMMARY=$(echo "$COMMENTS" | jq -r '.[] | select(.user.login=="coderabbitai[bot]") | .body' | tail -n1)
 
             if [[ -n "$SUMMARY" ]]; then
-              echo ":white_check_mark: Found CodeRabbit comment:"
-              echo "$SUMMARY"
               echo "summary<<EOF" >> $GITHUB_OUTPUT
               echo "$SUMMARY" >> $GITHUB_OUTPUT
               echo "EOF" >> $GITHUB_OUTPUT
               exit 0
-            else
-              echo ":x: CodeRabbit comment not found yet."
             fi
           done
 
-          echo ":no_entry: Timed out waiting for CodeRabbit summary comment."
+          echo "Timed out waiting for CodeRabbit summary comment."
           exit 1
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -64,36 +49,26 @@ jobs:
         run: |
           SUMMARY="${{ steps.wait_for_comment.outputs.summary }}"
           
-          # プロンプトのテンプレートを定義します。
-          # SUMMARYに変な文字（"や'など）が含まれていても問題ないように、printfで安全に結合します。
-          PROMPT_TEMPLATE="以下はGitHubのプルリクエストに対するAIレビューコメントです。この内容をもとに、下記のPRテンプレートの「変更内容」欄にふさわしい日本語の要約文、そして想定される「実装の背景」欄を作成してください。\n\n【AIレビューコメント】\n%s\n\n# 出力条件\n- 「### 変更内容」欄にそのまま貼れるような、簡潔で分かりやすい日本語でまとめてください。\n- テンプレートの他の欄は絶対に出力しないでください。\n- 余計な挨拶や説明文は不要です。「変更内容」だけを出力してください。"
+          # PRテンプレートを読み込む
+          PR_TEMPLATE=$(cat .github/PULL_REQUEST_TEMPLATE.md)
           
-          FULL_PROMPT=$(printf "$PROMPT_TEMPLATE" "$SUMMARY")
+          # プロンプトのテンプレートを定義。
+          PROMPT_TEMPLATE="以下はGitHubのプルリクエストに対するAIレビューコメントです。この内容をもとに、下記のPRテンプレートの「変更内容」欄にふさわしい日本語の要約文、そして想定される「実装の背景」欄を作成してください。\n\n【AIレビューコメント】\n%s\n\n【PRテンプレート】\n%s\n\n# 出力条件\n- 「### 変更内容」欄にそのまま貼れるような、簡潔で分かりやすい日本語でまとめてください。\n- 「### 実装の背景」欄も推測して作成してください。\n- テンプレートの他の欄は絶対に出力しないでください。\n- 余計な挨拶や説明文は不要です。「変更内容」と「実装の背景」の両方を出力してください。"
+          
+          FULL_PROMPT=$(printf "$PROMPT_TEMPLATE" "$SUMMARY" "$PR_TEMPLATE")
 
-          # jq を使って安全にJSONペイロードを生成します。
-          # これにより、プロンプト内の特殊文字が自動的にエスケープされます。
           JSON_PAYLOAD=$(jq -n \
             --arg prompt "$FULL_PROMPT" \
             '{contents: [{parts: [{text: $prompt}]}]}')
 
-          echo "--- Sending JSON Payload to Gemini ---"
-          echo "$JSON_PAYLOAD"
-          echo "------------------------------------"
-
           RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${{ secrets.GEMINI_API_KEY }}" \
             -H "Content-Type: application/json" \
             -d "$JSON_PAYLOAD")
-          
-          echo "--- Received Response from Gemini ---"
-          echo "$RESPONSE" | jq .
-          echo "-------------------------------------"
 
-          # レスポンスからテキスト部分を抽出
           BODY=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text')
           
-          # BODYがnullや空文字でないことを確認
           if [ -z "$BODY" ] || [ "$BODY" == "null" ]; then
-            echo "::error::Failed to extract body from Gemini response. The response might be empty or blocked."
+            echo "::error::Failed to extract body from Gemini response."
             exit 1
           fi
 
