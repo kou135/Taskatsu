@@ -35,11 +35,10 @@ jobs:
             echo "=== DEBUG: Raw Comments Response ==="
             echo "$COMMENTS" | jq '.'
             echo "================================"
-            
-            # CodeRabbitのコメントを抽出（最も長いコメントを取得）
-            REVIEW_SUMMARY=$(echo "$REVIEWS" | jq -r '.[] | select(.user.login=="coderabbitai[bot]") | .body' | awk '{print length, $0}' | sort -nr | head -1 | cut -d' ' -f2-)
-            COMMENT_SUMMARY=$(echo "$COMMENTS" | jq -r '.[] | select(.user.login=="coderabbitai[bot]") | .body' | awk '{print length, $0}' | sort -nr | head -1 | cut -d' ' -f2-)
-            
+          
+            # CodeRabbitのコメントを抽出（キーワードを含み、システムメッセージを除外した最初のものを取得）
+            REVIEW_SUMMARY=$(echo "$REVIEWS" | jq -r '.[] | select(.user.login=="coderabbitai[bot]" and (.body | test("<!-- walkthrough_start -->")) and (.body | test("rate limited|review in progress") | not)) | .body' | head -n1)
+            COMMENT_SUMMARY=$(echo "$COMMENTS" | jq -r '.[] | select(.user.login=="coderabbitai[bot]" and (.body | test("<!-- walkthrough_start -->")) and (.body | test("rate limited|review in progress") | not)) | .body' | head -n1)
 
             # デバッグ用：実際のコメント内容を確認
             echo "=== DEBUG: Review Summary ==="
