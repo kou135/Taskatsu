@@ -23,8 +23,8 @@ jobs:
       - name: Wait for CodeRabbit summary
         id: wait_for_comment
         run: |
-          for i in {1..20}; do
-            sleep 15
+          for i in {1..30}; do
+            sleep 30
             
             # レビューコメントを取得（編集されたコメントも含む）
             COMMENTS=$(gh api repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments)
@@ -34,7 +34,7 @@ jobs:
             echo "================================"
           
             # CodeRabbitのコメントを抽出（キーワードを含み、システムメッセージを除外した最初のものを取得）
-            COMMENT_SUMMARY=$(echo "$COMMENTS" | jq -r '.[] | select(.user.login=="coderabbitai[bot]" and (.body | test("<!-- walkthrough_start -->")) and (.body | test("rate limited|review in progress") | not)) | .body' | head -n1)
+            COMMENT_SUMMARY=$(echo "$COMMENTS" | jq -r '.[] | select(.user.login=="coderabbitai[bot]" and (.body | test("<!-- walkthrough_start -->")) and (.body | test("rate limited|review in progress") | not)) | .body')
 
             echo "=== DEBUG: Comment Summary ==="
             echo "$COMMENT_SUMMARY"
