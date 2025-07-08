@@ -63,21 +63,40 @@ jobs:
         id: generate_pr_body
         run: |
           SUMMARY="${{ steps.wait_for_comment.outputs.summary }}"
-          PROMPT="以下はGitHubのプルリクエストに対するAIレビューコメントです。この内容をもとに、下記のPRテンプレートの「変更内容」欄にふさわしい日本語の要約文、そして想定される「実装の背景」欄を作成してください。\n\n【AIレビューコメント】\n$SUMMARY\n\n# 出力条件\n- 「### 変更内容」欄にそのまま貼れるような、簡潔で分かりやすい日本語でまとめてください。\n- テンプレートの他の欄は絶対に出力しないでください。\n- 余計な挨拶や説明文は不要です。「変更内容」だけを出力してください。\"
+          
+          # プロンプトのテンプレートを定義します。
+          # SUMMARYに変な文字（"や'など）が含まれていても問題ないように、printfで安全に結合します。
+          PROMPT_TEMPLATE="以下はGitHubのプルリクエストに対するAIレビューコメントです。この内容をもとに、下記のPRテンプレートの「変更内容」欄にふさわしい日本語の要約文、そして想定される「実装の背景」欄を作成してください。\n\n【AIレビューコメント】\n%s\n\n# 出力条件\n- 「### 変更内容」欄にそのまま貼れるような、簡潔で分かりやすい日本語でまとめてください。\n- テンプレートの他の欄は絶対に出力しないでください。\n- 余計な挨拶や説明文は不要です。「変更内容」だけを出力してください。"
+          
+          FULL_PROMPT=$(printf "$PROMPT_TEMPLATE" "$SUMMARY")
+
+          # jq を使って安全にJSONペイロードを生成します。
+          # これにより、プロンプト内の特殊文字が自動的にエスケープされます。
+          JSON_PAYLOAD=$(jq -n \
+            --arg prompt "$FULL_PROMPT" \
+            '{contents: [{parts: [{text: $prompt}]}]}')
+
+          echo "--- Sending JSON Payload to Gemini ---"
+          echo "$JSON_PAYLOAD"
+          echo "------------------------------------"
 
           RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${{ secrets.GEMINI_API_KEY }}" \
             -H "Content-Type: application/json" \
-            -d '{
-              "contents": [
-                {
-                  "parts": [
-                    { \"text\": \"$PROMPT\" }
-                  ]
-                }
-              ]
-            }')
+            -d "$JSON_PAYLOAD")
+          
+          echo "--- Received Response from Gemini ---"
+          echo "$RESPONSE" | jq .
+          echo "-------------------------------------"
 
+          # レスポンスからテキスト部分を抽出
           BODY=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text')
+          
+          # BODYがnullや空文字でないことを確認
+          if [ -z "$BODY" ] || [ "$BODY" == "null" ]; then
+            echo "::error::Failed to extract body from Gemini response. The response might be empty or blocked."
+            exit 1
+          fi
+
           echo "pr_body<<EOF" >> $GITHUB_OUTPUT
           echo "$BODY" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
