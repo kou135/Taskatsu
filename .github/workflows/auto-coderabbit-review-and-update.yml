@@ -71,7 +71,7 @@ jobs:
               "contents": [
                 {
                   "parts": [
-                    { "text": "'"${PROMPT}"'" }
+                    { \"text\": \"$PROMPT\" }
                   ]
                 }
               ]
