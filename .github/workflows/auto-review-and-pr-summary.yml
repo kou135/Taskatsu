@@ -29,7 +29,7 @@ jobs:
             COMMENTS=$(gh api repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments)
             SUMMARY=$(echo "$COMMENTS" | jq -r '.[] | select(.user.login=="coderabbitai[bot]") | .body' | tail -n1)
 
-            if [[ -n "$SUMMARY" ]]; then
+            if [[ -n "$SUMMARY" ]] && [[ "$SUMMARY" == *"Walkthrough"* ]]; then
               echo "summary<<EOF" >> $GITHUB_OUTPUT
               echo "$SUMMARY" >> $GITHUB_OUTPUT
               echo "EOF" >> $GITHUB_OUTPUT
