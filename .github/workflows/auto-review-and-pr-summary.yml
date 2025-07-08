@@ -40,12 +40,7 @@ jobs:
             REVIEW_SUMMARY=$(echo "$REVIEWS" | jq -r '.[] | select(.user.login=="coderabbitai[bot]") | .body' | awk '{print length, $0}' | sort -nr | head -1 | cut -d' ' -f2-)
             COMMENT_SUMMARY=$(echo "$COMMENTS" | jq -r '.[] | select(.user.login=="coderabbitai[bot]") | .body' | awk '{print length, $0}' | sort -nr | head -1 | cut -d' ' -f2-)
             
-            echo "=== DEBUG: CodeRabbit Review Count ==="
-            echo "$REVIEWS" | jq -r '.[] | select(.user.login=="coderabbitai[bot]") | .id' | wc -l
-            echo "=== DEBUG: CodeRabbit Comment Count ==="
-            echo "$COMMENTS" | jq -r '.[] | select(.user.login=="coderabbitai[bot]") | .id' | wc -l
-            echo "================================"
-            
+
             # デバッグ用：実際のコメント内容を確認
             echo "=== DEBUG: Review Summary ==="
             echo "$REVIEW_SUMMARY"
