@@ -30,12 +30,33 @@ jobs:
             REVIEWS=$(gh api repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/reviews)
             COMMENTS=$(gh api repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments)
             
-            REVIEW_SUMMARY=$(echo "$REVIEWS" | jq -r '.[] | select(.user.login=="coderabbitai[bot]") | .body' | tail -n1)
-            COMMENT_SUMMARY=$(echo "$COMMENTS" | jq -r '.[] | select(.user.login=="coderabbitai[bot]") | .body' | tail -n1)
+            echo "=== DEBUG: Raw Reviews Response ==="
+            echo "$REVIEWS" | jq '.'
+            echo "=== DEBUG: Raw Comments Response ==="
+            echo "$COMMENTS" | jq '.'
+            echo "================================"
             
-            if [[ -n "$REVIEW_SUMMARY" ]] && [[ "$REVIEW_SUMMARY" == *"Walkthrough"* ]]; then
+            # CodeRabbitのコメントを抽出（最も長いコメントを取得）
+            REVIEW_SUMMARY=$(echo "$REVIEWS" | jq -r '.[] | select(.user.login=="coderabbitai[bot]") | .body' | awk '{print length, $0}' | sort -nr | head -1 | cut -d' ' -f2-)
+            COMMENT_SUMMARY=$(echo "$COMMENTS" | jq -r '.[] | select(.user.login=="coderabbitai[bot]") | .body' | awk '{print length, $0}' | sort -nr | head -1 | cut -d' ' -f2-)
+            
+            echo "=== DEBUG: CodeRabbit Review Count ==="
+            echo "$REVIEWS" | jq -r '.[] | select(.user.login=="coderabbitai[bot]") | .id' | wc -l
+            echo "=== DEBUG: CodeRabbit Comment Count ==="
+            echo "$COMMENTS" | jq -r '.[] | select(.user.login=="coderabbitai[bot]") | .id' | wc -l
+            echo "================================"
+            
+            # デバッグ用：実際のコメント内容を確認
+            echo "=== DEBUG: Review Summary ==="
+            echo "$REVIEW_SUMMARY"
+            echo "=== DEBUG: Comment Summary ==="
+            echo "$COMMENT_SUMMARY"
+            echo "=============================="
+            
+            # レビュー完了を示すキーワードを検索
+            if [[ -n "$REVIEW_SUMMARY" ]] && ([[ "$REVIEW_SUMMARY" == *"Walkthrough"* ]] || [[ "$REVIEW_SUMMARY" == *"Summary"* ]] || [[ "$REVIEW_SUMMARY" == *"Changes"* ]]); then
               SUMMARY="$REVIEW_SUMMARY"
-            elif [[ -n "$COMMENT_SUMMARY" ]] && [[ "$COMMENT_SUMMARY" == *"Walkthrough"* ]]; then
+            elif [[ -n "$COMMENT_SUMMARY" ]] && ([[ "$COMMENT_SUMMARY" == *"Walkthrough"* ]] || [[ "$COMMENT_SUMMARY" == *"Summary"* ]] || [[ "$COMMENT_SUMMARY" == *"Changes"* ]]); then
               SUMMARY="$COMMENT_SUMMARY"
             else
               SUMMARY=""
