@@ -27,30 +27,21 @@ jobs:
             sleep 15
             
             # レビューコメントを取得（編集されたコメントも含む）
-            REVIEWS=$(gh api repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/reviews)
             COMMENTS=$(gh api repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments)
             
-            echo "=== DEBUG: Raw Reviews Response ==="
-            echo "$REVIEWS" | jq '.'
             echo "=== DEBUG: Raw Comments Response ==="
             echo "$COMMENTS" | jq '.'
             echo "================================"
           
             # CodeRabbitのコメントを抽出（キーワードを含み、システムメッセージを除外した最初のものを取得）
-            REVIEW_SUMMARY=$(echo "$REVIEWS" | jq -r '.[] | select(.user.login=="coderabbitai[bot]" and (.body | test("<!-- walkthrough_start -->")) and (.body | test("rate limited|review in progress") | not)) | .body' | head -n1)
             COMMENT_SUMMARY=$(echo "$COMMENTS" | jq -r '.[] | select(.user.login=="coderabbitai[bot]" and (.body | test("<!-- walkthrough_start -->")) and (.body | test("rate limited|review in progress") | not)) | .body' | head -n1)
 
-            # デバッグ用：実際のコメント内容を確認
-            echo "=== DEBUG: Review Summary ==="
-            echo "$REVIEW_SUMMARY"
             echo "=== DEBUG: Comment Summary ==="
             echo "$COMMENT_SUMMARY"
             echo "=============================="
             
             # レビュー完了を示すキーワードを検索
-            if [[ -n "$REVIEW_SUMMARY" ]] && ([[ "$REVIEW_SUMMARY" == *"Walkthrough"* ]] || [[ "$REVIEW_SUMMARY" == *"Summary"* ]] || [[ "$REVIEW_SUMMARY" == *"Changes"* ]]); then
-              SUMMARY="$REVIEW_SUMMARY"
-            elif [[ -n "$COMMENT_SUMMARY" ]] && ([[ "$COMMENT_SUMMARY" == *"Walkthrough"* ]] || [[ "$COMMENT_SUMMARY" == *"Summary"* ]] || [[ "$COMMENT_SUMMARY" == *"Changes"* ]]); then
+            if [[ -n "$COMMENT_SUMMARY" ]] && ([[ "$COMMENT_SUMMARY" == *"Walkthrough"* ]] || [[ "$COMMENT_SUMMARY" == *"Summary"* ]] || [[ "$COMMENT_SUMMARY" == *"Changes"* ]]); then
               SUMMARY="$COMMENT_SUMMARY"
             else
               SUMMARY=""
