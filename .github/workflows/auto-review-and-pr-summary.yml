@@ -32,15 +32,11 @@ jobs:
             # CodeRabbitのコメントを抽出（キーワードを含んだものを取得）
             SUMMARY=$(echo "$COMMENTS" | jq -r '.[] | select(.user.login=="coderabbitai[bot]" and (.body | test("<!-- walkthrough_start -->")) and (.body | test("rate limited|review in progress") | not)) | .body')
 
-            echo "--- DEBUG: Checking if statement structure ---"
-            echo 'if [[ -n "$SUMMARY" ]]'
-            echo "---"
-
             if [[ -n "$SUMMARY" ]]; then
               echo "summary<<EOF" >> $GITHUB_OUTPUT
-              printf "%s\n" "$SUMMARY" >> $GITHUB_OUTPUT
-              echo "EOF" >> $GITHUB_OUTPUT
-              exit 0
+              cat <<EOF >> $GITHUB_OUTPUT
+              $SUMMARY
+              EOF
             fi
           done
 
