@@ -49,9 +49,10 @@ jobs:
 
       - name: Generate PR body using Gemini API
         id: generate_pr_body
+        env:
+          SUMMARY: ${{ steps.wait_for_comment.outputs.summary }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          SUMMARY="${{ steps.wait_for_comment.outputs.summary }}"
-          
           # PRテンプレートを読み込む
           PR_TEMPLATE=$(cat .github/PULL_REQUEST_TEMPLATE.md)
           
@@ -64,7 +65,7 @@ jobs:
             --arg prompt "$FULL_PROMPT" \
             '{contents: [{parts: [{text: $prompt}]}]}')
 
-          RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${{ secrets.GEMINI_API_KEY }}" \
+          RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=$GEMINI_API_KEY" \
             -H "Content-Type: application/json" \
             -d "$JSON_PAYLOAD")
 
@@ -80,8 +81,9 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Update PR body
-        run: |
-          echo "Updating PR body..."
-          gh pr edit ${{ github.event.pull_request.number }} --body "${{ steps.generate_pr_body.outputs.pr_body }}"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_BODY: ${{ steps.generate_pr_body.outputs.pr_body }}
+        run: |
+          echo "Updating PR body..."
+          gh pr edit ${{ github.event.pull_request.number }} --body "$PR_BODY"
