@@ -24,7 +24,12 @@ jobs:
         id: wait_for_comment
         run: |
           echo "Polling for CodeRabbit summary comment..."
+          # 一時ファイルを作成
           SUMMARY_FILE=$(mktemp)
+          
+          # ★★★ 変更点 1 ★★★
+          # このステップの出力として、要約の中身ではなく「ファイルへのパス」を渡す
+          echo "summary_file_path=${SUMMARY_FILE}" >> $GITHUB_OUTPUT
           
           for i in {1..30}; do
             echo "Polling attempt $i..."
@@ -32,22 +37,19 @@ jobs:
             
             COMMENTS=$(gh api repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments)
             
+            # 取得した要約を一時ファイルに書き込む
             echo "$COMMENTS" | jq -r '.[] | select(.user.login=="coderabbitai[bot]" and .body and (.body | contains("<!-- walkthrough_start -->"))) | .body' > "$SUMMARY_FILE"
 
+            # ファイルのサイズで要約が書き込まれたかを判断
             if [[ -s "$SUMMARY_FILE" ]]; then
               echo "Found CodeRabbit summary comment."
-              echo "summary<<EOF" >> $GITHUB_OUTPUT
-              cat "$SUMMARY_FILE" >> $GITHUB_OUTPUT
-              echo "EOF" >> $GITHUB_OUTPUT
-              rm "$SUMMARY_FILE"
               exit 0
             else
-              echo "CodeRabbit summary comment not found yet. (Waiting for the actual summary...)"
+              echo "CodeRabbit summary comment not found yet."
             fi
           done
 
           echo "Timed out waiting for CodeRabbit summary comment."
-          rm "$SUMMARY_FILE"
           exit 1
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -57,6 +59,20 @@ jobs:
       - name: Generate PR body using Gemini API
         id: generate_pr_body
         run: |
+          # ★★★ 変更点 2 ★★★
+          # 前のステップから、要約が保存された「ファイルへのパス」を受け取る
+          SUMMARY_FILE_PATH="${{ steps.wait_for_comment.outputs.summary_file_path }}"
+
+          # ファイルが存在し、中身が空でないことを確認
+          if [[ ! -s "$SUMMARY_FILE_PATH" ]]; then
+            echo "::error::Summary file is missing or empty."
+            exit 1
+          fi
+          
+          # ★★★ 変更点 3 ★★★
+          # ファイルから要約の中身を読み込む
+          SUMMARY=$(cat "$SUMMARY_FILE_PATH")
+
           # PRテンプレートが存在すれば読み込む
           if [ -f ".github/PULL_REQUEST_TEMPLATE.md" ]; then
             PR_TEMPLATE=$(cat .github/PULL_REQUEST_TEMPLATE.md)
@@ -64,14 +80,12 @@ jobs:
             PR_TEMPLATE=""
           fi
           
-          # ★★★ 変更点 ★★★
-          # printf を使わず、ヒアドキュメントで安全にプロンプトを組み立てる。
-          # これにより、巨大なSUMMARY変数がコマンドとして解釈されるのを防ぐ。
+          # プロンプトを組み立てる
           read -r -d '' FULL_PROMPT << EOF
           以下はGitHubのプルリクエストに対するAIレビューコメントです。この内容をもとに、下記のPRテンプレートの「変更内容」と「実装の背景」欄を作成してください。
 
           【AIレビューコメント】
-          ${{ steps.wait_for_comment.outputs.summary }}
+          $SUMMARY
 
           【PRテンプレート】
           $PR_TEMPLATE
@@ -83,9 +97,7 @@ jobs:
           - 余計な挨拶や説明文は不要です。
           EOF
 
-          JSON_PAYLOAD=$(jq -n \
-            --arg prompt "$FULL_PROMPT" \
-            '{contents: [{parts: [{text: $prompt}]}]}')
+          JSON_PAYLOAD=$(jq -n --arg prompt "$FULL_PROMPT" '{contents: [{parts: [{text: $prompt}]}]}')
 
           RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${{ secrets.GEMINI_API_KEY }}" \
             -H "Content-Type: application/json" \
@@ -94,7 +106,7 @@ jobs:
           BODY=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text')
           
           if [ -z "$BODY" ] || [ "$BODY" == "null" ]; then
-            echo "::error::Failed to extract body from Gemini response. The response might be empty or blocked."
+            echo "::error::Failed to extract body from Gemini response."
             exit 1
           fi
 
@@ -107,7 +119,6 @@ jobs:
       - name: Update PR body
         run: |
           echo "Updating PR body..."
-          # マルチラインの本文を安全に更新するために --body-file を使用
           gh pr edit ${{ github.event.pull_request.number }} --body-file <(echo "${{ steps.generate_pr_body.outputs.pr_body }}")
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
