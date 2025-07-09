@@ -29,19 +29,16 @@ jobs:
             # レビューコメントを取得（編集されたコメントも含む）
             COMMENTS=$(gh api repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments)
           
-            # CodeRabbitのコメントを抽出（キーワードを含み、システムメッセージを除外した最初のものを取得）
-            COMMENT_SUMMARY=$(echo "$COMMENTS" | jq -r '.[] | select(.user.login=="coderabbitai[bot]" and (.body | test("<!-- walkthrough_start -->")) and (.body | test("rate limited|review in progress") | not)) | .body')
-            
-            # レビュー完了を示すキーワードを検索
-            if [[ -n "$COMMENT_SUMMARY" ]] && ([[ "$COMMENT_SUMMARY" == *"Walkthrough"* ]] || [[ "$COMMENT_SUMMARY" == *"Summary"* ]] || [[ "$COMMENT_SUMMARY" == *"Changes"* ]]); then
-              SUMMARY="$COMMENT_SUMMARY"
-            else
-              SUMMARY=""
-            fi
+            # CodeRabbitのコメントを抽出（キーワードを含んだものを取得）
+            SUMMARY=$(echo "$COMMENTS" | jq -r '.[] | select(.user.login=="coderabbitai[bot]" and (.body | test("<!-- walkthrough_start -->")) and (.body | test("rate limited|review in progress") | not)) | .body')
+
+            echo "--- DEBUG: Checking if statement structure ---"
+            echo 'if [[ -n "$SUMMARY" ]]'
+            echo "---"
 
             if [[ -n "$SUMMARY" ]]; then
               echo "summary<<EOF" >> $GITHUB_OUTPUT
-              echo "$SUMMARY" >> $GITHUB_OUTPUT
+              printf "%s\n" "$SUMMARY" >> $GITHUB_OUTPUT
               echo "EOF" >> $GITHUB_OUTPUT
               exit 0
             fi
