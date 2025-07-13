@@ -15,9 +15,15 @@ import { ja } from "date-fns/locale";
 import { createTaskSchema, type CreateTaskFormData } from "@/lib/schemas/task-schema";
 import { createTask } from "./actions";
 import { toast } from "sonner";
+import { useEffect } from "react";
 
 export default function Dashboard() {
     const { data: session, status } = useSession();
+
+    useEffect(() => {
+        console.log("【クライアント】session:", session);
+      }, [session]);
+
     const form = useForm<CreateTaskFormData>({
         resolver: zodResolver(createTaskSchema),
         defaultValues: {
