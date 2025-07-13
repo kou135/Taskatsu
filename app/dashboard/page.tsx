@@ -13,6 +13,8 @@ import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 import { createTaskSchema, type CreateTaskFormData } from "@/lib/schemas/task-schema";
+import { createTask } from "./actions";
+import { toast } from "sonner";
 
 export default function Dashboard() {
     const { data: session, status } = useSession();
@@ -27,9 +29,29 @@ export default function Dashboard() {
     });
 
     // フォーム送信処理
-    const onSubmit = (data: CreateTaskFormData) => {
+    const onSubmit = async (data: CreateTaskFormData) => {
         console.log("フォームデータ:", data);
-        // TODO: サーバーに送信する処理を実装
+        
+        try {
+            const result = await createTask({
+              company: data.company,
+              taskType: data.taskType,
+              deadline: data.deadline,
+              attachment: data.attachment,
+            });
+        
+            if (result.success) {
+              console.log("タスク作成成功");
+              form.reset();
+              toast.success("タスクが正常に作成されました！");
+            } else {
+              console.error("タスク作成失敗:", result.error);
+              toast.error(result.error || "タスクの作成に失敗しました");
+            }
+          } catch (error) {
+            console.error("タスク作成エラー:", error);
+            toast.error("予期しないエラーが発生しました");
+          }
     };
 
     // 認証状態をチェック
