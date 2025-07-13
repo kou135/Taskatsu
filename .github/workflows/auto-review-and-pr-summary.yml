@@ -1,0 +1,90 @@
+name: Auto PR Summary
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  generate_and_update:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Post CodeRabbit review comment
+        uses: peter-evans/create-or-update-comment@v3
+        with:
+          token: ${{ secrets.MY_PAT }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: "@coderabbitai review"
+
+      - name: Wait for CodeRabbit summary
+        id: wait_for_comment
+        run: |
+          for i in {1..30}; do
+            sleep 30
+            
+            # レビューコメントを取得（編集されたコメントも含む）
+            COMMENTS=$(gh api repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments)
+          
+            # CodeRabbitのコメントを抽出（キーワードを含んだものを取得）
+            SUMMARY=$(echo "$COMMENTS" | jq -r '.[] | select(.user.login=="coderabbitai[bot]" and (.body | test("<!-- walkthrough_start -->")) and (.body | test("rate limited|review in progress") | not)) | .body')
+
+            if [[ -n "$SUMMARY" ]]; then
+              echo "summary<<EOF" >> $GITHUB_OUTPUT
+              printf "%s\n" "$SUMMARY" >> $GITHUB_OUTPUT
+              echo "EOF" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+          done
+
+          echo "Timed out waiting for CodeRabbit summary comment."
+          exit 1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+
+      - name: Generate PR body using LLM
+        id: generate_pr_body
+        env:
+          SUMMARY: ${{ steps.wait_for_comment.outputs.summary }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          # PRテンプレートを読み込む
+          PR_TEMPLATE=$(cat .github/PULL_REQUEST_TEMPLATE.md)
+          
+          # プロンプトのテンプレートを定義。
+          PROMPT_TEMPLATE="以下はGitHubのプルリクエストに対するAIレビューコメントです。この内容をもとに、下記のPRテンプレートの「変更内容」欄にふさわしい日本語の要約文、そして想定される「実装の背景」欄を作成してください。\n\n【AIレビューコメント】\n%s\n\n【PRテンプレート】\n%s\n\n# 出力条件\n- 「### 変更内容」欄にそのまま貼れるような、簡潔で分かりやすい日本語でまとめてください。\n- 「### 実装の背景」欄も推測して作成してください。\n- テンプレートの他の欄「### この実装のゴール」や「チェックリスト」は絶対に中身は埋めないが、作成者が記述する用にそのまま出力してください。\n- 余計な挨拶や説明文は不要です。「変更内容」と「実装の背景」の両方を出力してください。"
+          
+          FULL_PROMPT=$(printf "$PROMPT_TEMPLATE" "$SUMMARY" "$PR_TEMPLATE")
+
+          JSON_PAYLOAD=$(jq -n \
+            --arg prompt "$FULL_PROMPT" \
+            '{contents: [{parts: [{text: $prompt}]}]}')
+
+          RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=$GEMINI_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "$JSON_PAYLOAD")
+
+          BODY=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text')
+          
+          if [ -z "$BODY" ] || [ "$BODY" == "null" ]; then
+            echo "::error::Failed to extract body from Gemini response."
+            exit 1
+          fi
+
+          echo "pr_body<<EOF" >> $GITHUB_OUTPUT
+          echo "$BODY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Update PR body
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_BODY: ${{ steps.generate_pr_body.outputs.pr_body }}
+        run: |
+          echo "Updating PR body..."
+          printf '%s\n' "$PR_BODY" > pr_body.txt
+          gh pr edit ${{ github.event.pull_request.number }} --body-file pr_body.txt
