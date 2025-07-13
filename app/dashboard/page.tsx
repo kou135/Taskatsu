@@ -1,6 +1,6 @@
 "use client";
 
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +13,7 @@ import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 
 export default function Dashboard() {
+    console.log("Dashboard component rendered - Step 1"); // デバッグ用
     const { data: session, status } = useSession();
     const [date, setDate] = useState<Date>();
     const [taskType, setTaskType] = useState<string>("");
@@ -45,8 +46,17 @@ export default function Dashboard() {
             <div className="max-w-2xl mx-auto">
                 <div className="flex justify-between items-center mb-8">
                     <h1 className="text-3xl font-bold text-gray-900">就活タスク管理</h1>
-                    <div className="text-sm text-gray-600">
-                        ようこそ、{session?.user?.name || session?.user?.email}さん
+                    <div className="flex items-center gap-4">
+                        <div className="text-sm text-gray-600">
+                            ようこそ、{session?.user?.name || session?.user?.email}さん
+                        </div>
+                        <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => signOut({ callbackUrl: '/' })}
+                        >
+                            ログアウト
+                        </Button>
                     </div>
                 </div>
                 
