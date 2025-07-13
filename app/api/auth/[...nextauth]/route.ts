@@ -3,6 +3,7 @@ import GoogleProvider from "next-auth/providers/google";
 import type { Session } from "next-auth";
 import type { JWT } from "next-auth/jwt";
 import type { Account } from "next-auth";
+import axios from "axios";
 
 export const authOptions = {
   providers: [
